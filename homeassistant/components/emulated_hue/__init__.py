@@ -14,9 +14,10 @@ from homeassistant.const import (
     CONF_TYPE,
     EVENT_HOMEASSISTANT_STARTED,
     EVENT_HOMEASSISTANT_STOP,
+    Platform,
 )
 from homeassistant.core import Event, HomeAssistant
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, discovery
 from homeassistant.helpers.typing import ConfigType
 
 from .config import (
@@ -38,7 +39,7 @@ from .config import (
     TYPE_GOOGLE,
     Config,
 )
-from .const import DOMAIN
+from .const import CONF_AREA_LIGHTS, CONF_AREA_LIGHTS_NAME_PREFIX, DOMAIN
 from .hue_api import (
     HueAllGroupsStateView,
     HueAllLightsStateView,
@@ -84,6 +85,12 @@ CONFIG_SCHEMA = vol.Schema(
                 vol.Optional(
                     CONF_LIGHTS_ALL_DIMMABLE, default=DEFAULT_LIGHTS_ALL_DIMMABLE
                 ): cv.boolean,
+                vol.Optional(
+                    CONF_AREA_LIGHTS, default=False
+                ): cv.boolean,
+                vol.Optional(
+                    CONF_AREA_LIGHTS_NAME_PREFIX, default=""
+                ): cv.string,
             }
         )
     },
@@ -149,6 +156,18 @@ async def async_setup(hass: HomeAssistant, yaml_config: ConfigType) -> bool:
     HueAllGroupsStateView(config).register(hass, app, app.router)
     HueGroupView(config).register(hass, app, app.router)
     HueFullStateView(config).register(hass, app, app.router)
+
+    # Load area light groups platform if enabled
+    if config.area_lights_enabled:
+        hass.async_create_task(
+            discovery.async_load_platform(
+                hass,
+                Platform.LIGHT,
+                DOMAIN,
+                {CONF_AREA_LIGHTS_NAME_PREFIX: config.area_lights_name_prefix},
+                yaml_config,
+            )
+        )
 
     async def _start(event: Event) -> None:
         """Start the bridge."""

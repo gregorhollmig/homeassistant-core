@@ -641,6 +641,7 @@ class HueOneLightChangeView(HomeAssistantView):
         return self.json(json_response)
 
 
+
 def get_entity_state_dict(config: Config, entity: State) -> dict[str, Any]:
     """Retrieve and convert state and brightness values for an entity."""
     cached_state_entry = config.cached_states.get(entity.entity_id, None)
@@ -854,6 +855,7 @@ def state_to_json(config: Config, state: State) -> dict[str, Any]:
         json_state.update({HUE_API_STATE_BRI: HUE_API_STATE_BRI_MAX})
 
     return retval
+
 
 
 def state_supports_hue_brightness(

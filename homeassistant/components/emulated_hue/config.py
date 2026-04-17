@@ -31,6 +31,8 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.helpers.typing import ConfigType
 
+from .const import CONF_AREA_LIGHTS, CONF_AREA_LIGHTS_NAME_PREFIX
+
 SUPPORTED_DOMAINS = {
     climate.DOMAIN,
     cover.DOMAIN,
@@ -160,6 +162,10 @@ class Config:
             self.track_domains = {
                 split_entity_id(entity_id)[0] for entity_id in self.entities
             }
+
+        # Area lights: expose areas as virtual Hue lights
+        self.area_lights_enabled: bool = conf.get(CONF_AREA_LIGHTS, False)
+        self.area_lights_name_prefix: str = conf.get(CONF_AREA_LIGHTS_NAME_PREFIX, "")
 
     async def async_setup(self) -> None:
         """Set up tracking and migrate to storage."""
