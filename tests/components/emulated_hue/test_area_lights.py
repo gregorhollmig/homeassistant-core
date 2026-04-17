@@ -10,6 +10,7 @@ from homeassistant.components import emulated_hue
 from homeassistant.components.emulated_hue.const import (
     CONF_AREA_LIGHTS,
     CONF_AREA_LIGHTS_NAME_PREFIX,
+    DATA_AREA_LIGHT_IDS,
 )
 from homeassistant.components.emulated_hue.light import (
     AreaLightGroup,
@@ -451,3 +452,85 @@ async def test_config_schema_area_lights_defaults(hass: HomeAssistant) -> None:
     validated = emulated_hue.CONFIG_SCHEMA(config)
     assert validated[emulated_hue.DOMAIN][CONF_AREA_LIGHTS] is False
     assert validated[emulated_hue.DOMAIN][CONF_AREA_LIGHTS_NAME_PREFIX] == ""
+
+
+async def test_area_lights_auto_exposed_when_expose_by_default_false(
+    hass: HomeAssistant,
+) -> None:
+    """Test area light entities are exposed even with expose_by_default: false."""
+    from homeassistant.components.emulated_hue.config import Config
+
+    conf = {
+        "expose_by_default": False,
+        "area_lights": True,
+    }
+    config = Config(hass, conf, "127.0.0.1")
+
+    # Simulate an area light entity being registered
+    hass.data[DATA_AREA_LIGHT_IDS] = {"light.emulated_hue_area_living_room"}
+
+    # Create a state for the area light entity
+    hass.states.async_set("light.emulated_hue_area_living_room", STATE_ON)
+
+    state = hass.states.get("light.emulated_hue_area_living_room")
+    assert state is not None
+    assert config.is_state_exposed(state) is True
+
+
+async def test_area_lights_not_exposed_when_feature_disabled(
+    hass: HomeAssistant,
+) -> None:
+    """Test area light entities are NOT exposed when area_lights is false."""
+    from homeassistant.components.emulated_hue.config import Config
+
+    conf = {
+        "expose_by_default": False,
+        "area_lights": False,
+    }
+    config = Config(hass, conf, "127.0.0.1")
+
+    hass.data[DATA_AREA_LIGHT_IDS] = {"light.emulated_hue_area_living_room"}
+    hass.states.async_set("light.emulated_hue_area_living_room", STATE_ON)
+
+    state = hass.states.get("light.emulated_hue_area_living_room")
+    assert state is not None
+    assert config.is_state_exposed(state) is False
+
+
+async def test_area_lights_in_exposed_entity_ids_with_expose_by_default_false(
+    hass: HomeAssistant,
+) -> None:
+    """Test area light entities appear in get_exposed_entity_ids with expose_by_default false."""
+    from homeassistant.components.emulated_hue.config import Config
+
+    conf = {
+        "expose_by_default": False,
+        "area_lights": True,
+    }
+    config = Config(hass, conf, "127.0.0.1")
+
+    hass.data[DATA_AREA_LIGHT_IDS] = {"light.emulated_hue_area_kitchen"}
+    hass.states.async_set("light.emulated_hue_area_kitchen", STATE_ON)
+
+    exposed = config.get_exposed_entity_ids()
+    assert "light.emulated_hue_area_kitchen" in exposed
+
+
+async def test_regular_entities_still_hidden_with_expose_by_default_false(
+    hass: HomeAssistant,
+) -> None:
+    """Test that non-area-light entities remain hidden when expose_by_default is false."""
+    from homeassistant.components.emulated_hue.config import Config
+
+    conf = {
+        "expose_by_default": False,
+        "area_lights": True,
+    }
+    config = Config(hass, conf, "127.0.0.1")
+
+    hass.data[DATA_AREA_LIGHT_IDS] = set()
+    hass.states.async_set("light.some_random_light", STATE_ON)
+
+    state = hass.states.get("light.some_random_light")
+    assert state is not None
+    assert config.is_state_exposed(state) is False

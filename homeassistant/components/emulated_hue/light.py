@@ -15,7 +15,7 @@ from homeassistant.helpers import (
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import CONF_AREA_LIGHTS_NAME_PREFIX, DOMAIN
+from .const import CONF_AREA_LIGHTS_NAME_PREFIX, DATA_AREA_LIGHT_IDS, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -31,6 +31,9 @@ async def async_setup_platform(
         return
 
     name_prefix: str = discovery_info.get(CONF_AREA_LIGHTS_NAME_PREFIX, "")
+
+    # Initialize the shared set of area light entity IDs
+    hass.data.setdefault(DATA_AREA_LIGHT_IDS, set())
 
     manager = AreaLightGroupManager(hass, async_add_entities, name_prefix)
     manager.update_area_lights()
@@ -164,6 +167,16 @@ class AreaLightGroup(LightGroup):
     ) -> None:
         """Initialize an area light group."""
         super().__init__(unique_id, name, entity_ids, mode=False)
+
+    async def async_added_to_hass(self) -> None:
+        """Register entity ID in shared data when added to hass."""
+        await super().async_added_to_hass()
+        self.hass.data.setdefault(DATA_AREA_LIGHT_IDS, set()).add(self.entity_id)
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Unregister entity ID from shared data when removed."""
+        if DATA_AREA_LIGHT_IDS in self.hass.data:
+            self.hass.data[DATA_AREA_LIGHT_IDS].discard(self.entity_id)
 
     @callback
     def update_member_entity_ids(self, entity_ids: list[str]) -> None:

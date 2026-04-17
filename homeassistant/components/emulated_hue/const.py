@@ -8,3 +8,6 @@ DOMAIN = "emulated_hue"
 # Area lights feature
 CONF_AREA_LIGHTS = "area_lights"
 CONF_AREA_LIGHTS_NAME_PREFIX = "area_lights_name_prefix"
+
+# hass.data key for the set of area light entity IDs
+DATA_AREA_LIGHT_IDS = "emulated_hue.area_light_ids"

@@ -31,7 +31,7 @@ from homeassistant.helpers.event import (
 )
 from homeassistant.helpers.typing import ConfigType
 
-from .const import CONF_AREA_LIGHTS, CONF_AREA_LIGHTS_NAME_PREFIX
+from .const import CONF_AREA_LIGHTS, CONF_AREA_LIGHTS_NAME_PREFIX, DATA_AREA_LIGHT_IDS
 
 SUPPORTED_DOMAINS = {
     climate.DOMAIN,
@@ -167,6 +167,10 @@ class Config:
         self.area_lights_enabled: bool = conf.get(CONF_AREA_LIGHTS, False)
         self.area_lights_name_prefix: str = conf.get(CONF_AREA_LIGHTS_NAME_PREFIX, "")
 
+        # Ensure the light domain is tracked when area lights are enabled
+        if self.area_lights_enabled:
+            self.track_domains.add(light.DOMAIN)
+
     async def async_setup(self) -> None:
         """Set up tracking and migrate to storage."""
         hass = self.hass
@@ -229,11 +233,20 @@ class Config:
                 for state in state_machine.async_all()
                 if self.is_state_exposed(state)
             ]
-        return [
+        exposed = [
             entity_id
             for entity_id in self.entities
             if (state := state_machine.get(entity_id)) and self.is_state_exposed(state)
         ]
+        # Include area light entities even when expose_by_default is false
+        if self.area_lights_enabled:
+            for entity_id in self.hass.data.get(DATA_AREA_LIGHT_IDS, set()):
+                if (
+                    entity_id not in self.entities
+                    and (state := state_machine.get(entity_id)) is not None
+                ):
+                    exposed.append(entity_id)
+        return exposed
 
     @callback
     def _clear_exposed_cache(self, event: Event[EventStateChangedData]) -> None:
@@ -256,6 +269,14 @@ class Config:
         if state.attributes.get("view") is not None:
             # Ignore entities that are views
             return False
+
+        # Area light group entities are always exposed when area_lights is on
+        if (
+            self.area_lights_enabled
+            and state.entity_id
+            in self.hass.data.get(DATA_AREA_LIGHT_IDS, set())
+        ):
+            return True
 
         if state.entity_id in self._entities_with_hidden_attr_in_config:
             return not self._entities_with_hidden_attr_in_config[state.entity_id]
